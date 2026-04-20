@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pilotage opérationnel</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="db">
+  <div class="header-bar">PILOTAGE OPÉRATIONNEL</div>
+  <div class="affaire-meta" id="meta-display"></div>
+
+  <div class="alert-banner">
+    <div>
+      <div class="alert-sub">Alertes actives</div>
+      <div class="alert-count" id="alert-count">—</div>
+    </div>
+    <div class="alert-details" id="alert-details"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="section-title">Avancement global de l'affaire</div>
+    <div id="progress-rows"></div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="section-title" id="appro-title"></div>
+      <div class="sub-grid" id="appro-kpis"></div>
+      <div class="sep">
+        <div class="sep-label">Prochaines livraisons critiques</div>
+        <div id="appro-rows"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title" id="prod-title"></div>
+      <div class="sub-grid" id="prod-kpis"></div>
+      <div class="sep">
+        <div class="sep-label">Opérations planifiées</div>
+        <div id="prod-rows"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="section-title" id="nc-title"></div>
+    <div class="sub-grid-3" id="nc-kpis"></div>
+    <div class="sep">
+      <div class="sep-label">NC ouvertes</div>
+      <div id="nc-rows"></div>
+    </div>
+  </div>
+
+  <div style="text-align:right; font-size:11px; color:#8A9BB0; margin-top:4px;">
+    Dernière mise à jour : <span id="last-update">—</span>
+  </div>
+</div>
+
+<script>
+const DATA = {
+  "meta": {
+    "affaire": "Armoire et clipsage serringue",
+    "livraison": "15 juin 2025",
+    "charge": "M. Lefebvre"
+  },
+  "alertDetails": [
+    "4 commandes en retard · 6 besoins non couverts",
+    "2 OF à risque matière · 2 NC ouvertes fournisseur"
+  ],
+  "phases": [
+    { "name": "Global", "pct": 58, "color": "bar-blue", "pctColor": "pct-blue", "bold": true },
+    { "name": "Bureau d'études", "pct": 80, "color": "bar-green", "pctColor": "pct-green", "bold": false },
+    { "name": "Production / assemblage", "pct": 35, "color": "bar-orange", "pctColor": "pct-orange", "bold": false },
+    { "name": "Expéditions", "pct": 10, "color": "bar-gray", "pctColor": "pct-gray", "bold": false }
+  ],
+  "approTitle": "Approvisionnements",
+  "approKpis": [
+    { "label": "Commandes en retard", "val": "4", "cls": "val-danger" },
+    { "label": "Besoins non couverts", "val": "6", "cls": "val-danger" },
+    { "label": "Appels d'offre en cours", "val": "3", "cls": "val-ok" },
+    { "label": "Commandes à relancer", "val": "2", "cls": "val-warning" }
+  ],
+  "approRows": [
+    { "label": "Armoire électrique P3", "meta": "J+2", "badgeCls": "badge-danger", "badgeText": "En retard" },
+    { "label": "Câblage faisceau F1", "meta": "J+5", "badgeCls": "badge-warning", "badgeText": "À risque" },
+    { "label": "Visserie lot B", "meta": "J+8", "badgeCls": "badge-ok", "badgeText": "Conforme" }
+  ],
+  "prodTitle": "Production & assemblage",
+  "prodKpis": [
+    { "label": "OF en cours", "val": "5", "cls": "val-ok" },
+    { "label": "OF à risque matière", "val": "2", "cls": "val-danger" }
+  ],
+  "prodRows": [
+    { "label": "Assemblage bâti A", "meta": "", "badgeCls": "badge-danger", "badgeText": "Matière manquante" },
+    { "label": "Câblage armoire C2", "meta": "", "badgeCls": "badge-warning", "badgeText": "À surveiller" },
+    { "label": "Test banc T3", "meta": "", "badgeCls": "badge-ok", "badgeText": "Matière OK" }
+  ],
+  "ncTitle": "Non-conformités",
+  "ncKpis": [
+    { "label": "Internes", "val": "3", "cls": "val-warning" },
+    { "label": "Fournisseurs", "val": "2", "cls": "val-danger" },
+    { "label": "Client", "val": "0", "cls": "val-neutral" }
+  ],
+  "ncRows": [
+    { "label": "NC-F-012 · Pièce usinée hors cote", "meta": "Ouverte J-6", "badgeCls": "badge-danger", "badgeText": "Fournisseur" },
+    { "label": "NC-F-011 · Composant non conforme", "meta": "Ouverte J-3", "badgeCls": "badge-danger", "badgeText": "Fournisseur" },
+    { "label": "NC-I-008 · Soudure non conforme", "meta": "En cours", "badgeCls": "badge-warning", "badgeText": "Interne" },
+    { "label": "NC-I-007 · Visserie mal serrée", "meta": "Clôturée", "badgeCls": "badge-ok", "badgeText": "Clôturée" }
+  ],
+  "lastUpdate": "20/04/2026 15:36"
+};
+
+function countAlerts(d) {
+  let n = 0;
+  [...(d.approRows||[]),...(d.prodRows||[]),...(d.ncRows||[])].forEach(r => { if(r.badgeCls==='badge-danger') n++; });
+  return n;
+}
+function renderRows(rows) {
+  return (rows||[]).map(r => `<div class="row-list">
+    <span>${r.label}</span>
+    <span style="display:flex;align-items:center;gap:6px;">
+      ${r.meta?`<span class="row-meta">${r.meta}</span>`:''}
+      <span class="badge ${r.badgeCls}">${r.badgeText}</span>
+    </span>
+  </div>`).join('');
+}
+function renderKpis(kpis, id) {
+  document.getElementById(id).innerHTML = (kpis||[]).map(k => `<div class="sub-kpi">
+    <div class="sub-label">${k.label}</div>
+    <div class="sub-val ${k.cls}">${k.val}</div>
+  </div>`).join('');
+}
+function render(d) {
+  document.getElementById('meta-display').innerHTML =
+    `Affaire : <strong>${d.meta.affaire}</strong> &nbsp;·&nbsp; Livraison prévue : ${d.meta.livraison} &nbsp;·&nbsp; Chargé d'affaire : ${d.meta.charge}`;
+  document.getElementById('alert-count').textContent = countAlerts(d);
+  document.getElementById('alert-details').innerHTML = (d.alertDetails||[]).join('<br>');
+  document.getElementById('progress-rows').innerHTML = (d.phases||[]).map(p => `<div class="phase-row">
+    <div class="phase-name ${p.bold?'bold':''}">${p.name}</div>
+    <div class="progress-wrap"><div class="progress-bar ${p.color}" style="width:${p.pct}%;"></div></div>
+    <span class="progress-pct-label ${p.pctColor}">${p.pct}%</span>
+  </div>`).join('');
+  document.getElementById('appro-title').textContent = d.approTitle||'';
+  renderKpis(d.approKpis,'appro-kpis');
+  document.getElementById('appro-rows').innerHTML = renderRows(d.approRows);
+  document.getElementById('prod-title').textContent = d.prodTitle||'';
+  renderKpis(d.prodKpis,'prod-kpis');
+  document.getElementById('prod-rows').innerHTML = renderRows(d.prodRows);
+  document.getElementById('nc-title').textContent = d.ncTitle||'';
+  renderKpis(d.ncKpis,'nc-kpis');
+  document.getElementById('nc-rows').innerHTML = renderRows(d.ncRows);
+  document.getElementById('last-update').textContent = d.lastUpdate||'—';
+}
+render(DATA);
+</script>
+</body>
+</html>
