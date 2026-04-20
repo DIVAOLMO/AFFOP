@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Édition — Pilotage opérationnel</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .edit-toolbar {
+    position: sticky; top: 0; z-index: 100;
+    background: #1B3F72; padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-radius: 8px; margin-bottom: 16px; gap: 10px; flex-wrap: wrap;
+  }
+  .toolbar-left { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .toolbar-right { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .toolbar-label { color:#fff; font-size:12px; font-weight:600; letter-spacing:0.07em; text-transform:uppercase; }
+  .toolbar-hint { color:#9BB8D8; font-size:11px; }
+  .btn { border-radius:6px; padding:7px 16px; font-size:12px; font-weight:600; cursor:pointer; border:none; }
+  .btn-save { background:#2E7D4F; color:#fff; }
+  .btn-save:hover { background:#246040; }
+  .btn-reset { background:transparent; color:#E87A6A; border:1px solid #7A3A30; }
+  .btn-reset:hover { background:#7A3A30; color:#fff; }
+  .save-confirm { color:#7EE8A2; font-size:11px; display:none; margin-left:6px; }
+  .save-confirm.show { display:inline; }
+
+  .workflow-box {
+    background: #153060; border: 1px solid #4A6FA5; border-radius: 6px;
+    padding: 8px 14px; font-size: 11px; color: #9BB8D8; line-height: 1.9; margin-bottom: 14px;
+  }
+  .workflow-box strong { color:#fff; }
+  .workflow-step { display:inline-block; background:#1B5FAD; color:#fff; border-radius:4px; padding:1px 7px; font-size:10px; font-weight:600; margin-right:4px; }
+
+  .editable { cursor:text; outline:1.5px dashed #1B8CF0; background:#EBF4FF; border-radius:3px; padding:1px 4px; min-width:20px; display:inline-block; }
+  .editable:hover { background:#D6ECFF; }
+  .editable:focus { outline:2px solid #1B8CF0; background:#fff; }
+
+  .progress-input { width:54px; font-size:12px; border:1px solid #1B8CF0; border-radius:4px; padding:2px 4px; text-align:center; background:#fff; color:#1A2A3A; }
+  .progress-pct-label { display:none; }
+  .badge { display:none; }
+  .badge-select { font-size:10px; border:1px solid #ccc; border-radius:4px; padding:2px 4px; background:#fff; cursor:pointer; }
+  .val-select { font-size:10px; margin-top:4px; width:100%; border:1px solid #ccc; border-radius:4px; padding:2px; background:#fff; }
+
+  .add-row-btn { font-size:11px; color:#1B8CF0; background:none; border:1px dashed #1B8CF0; border-radius:4px; padding:4px 10px; cursor:pointer; margin-top:6px; width:100%; text-align:center; }
+  .add-row-btn:hover { background:#EBF4FF; }
+  .del-row-btn { background:none; border:none; color:#C0392B; font-size:14px; cursor:pointer; padding:0 4px; line-height:1; }
+  .del-row-btn:hover { color:#8B0000; }
+  .del-kpi-btn { display:block; margin-top:4px; width:100%; font-size:10px; color:#C0392B; background:none; border:1px solid #F5C0BC; border-radius:4px; padding:2px; cursor:pointer; }
+  .del-kpi-btn:hover { background:#FDECEA; }
+</style>
+</head>
+<body>
+<div class="db">
+
+  <div class="edit-toolbar">
+    <div class="toolbar-left">
+      <span class="toolbar-label">✏ Mode édition</span>
+      <span class="toolbar-hint">Cliquez sur un texte ou une valeur pour modifier</span>
+    </div>
+    <div class="toolbar-right">
+      <button class="btn btn-reset" onclick="resetData()">Réinitialiser</button>
+      <button class="btn btn-save" onclick="exportIndexHTML()">⬇ Exporter index.html</button>
+      <span class="save-confirm" id="save-confirm">✓ index.html téléchargé — replacez-le dans VSCode et pushez</span>
+    </div>
+  </div>
+
+  <div class="workflow-box">
+    <strong>Workflow de mise à jour :</strong> &nbsp;
+    <span class="workflow-step">1</span> Modifiez les données ci-dessous &nbsp;
+    <span class="workflow-step">2</span> Cliquez <strong>"Exporter index.html"</strong> &nbsp;
+    <span class="workflow-step">3</span> Glissez ce fichier dans VSCode <em>(remplace l'ancien)</em> &nbsp;
+    <span class="workflow-step">4</span> Push sur GitHub &nbsp;
+    <span class="workflow-step">5</span> Le widget ERP affiche les nouvelles données
+  </div>
+
+  <div class="header-bar">PILOTAGE OPÉRATIONNEL</div>
+  <div class="affaire-meta">
+    Affaire : <span class="editable" contenteditable="true" id="f-affaire">Armoire et clipsage serringue</span>
+    &nbsp;·&nbsp; Livraison prévue : <span class="editable" contenteditable="true" id="f-livraison">15 juin 2025</span>
+    &nbsp;·&nbsp; Chargé d'affaire : <span class="editable" contenteditable="true" id="f-charge">M. Lefebvre</span>
+  </div>
+
+  <div class="alert-banner">
+    <div>
+      <div class="alert-sub">Alertes actives</div>
+      <div class="alert-count" id="alert-count">0</div>
+    </div>
+    <div class="alert-details">
+      <span class="editable" contenteditable="true" id="f-alert1">4 commandes en retard · 6 besoins non couverts</span><br>
+      <span class="editable" contenteditable="true" id="f-alert2">2 OF à risque matière · 2 NC ouvertes fournisseur</span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="section-title">Avancement global de l'affaire</div>
+    <div id="phase-rows">
+      <div class="phase-row">
+        <div class="phase-name bold editable" contenteditable="true">Global</div>
+        <div class="progress-wrap"><div class="progress-bar bar-blue" id="bar-ph-0" style="width:58%;"></div></div>
+        <input class="progress-input" type="number" min="0" max="100" value="58" data-color="bar-blue" data-pct-color="pct-blue" oninput="updateProgress('ph-0',this.value);updateAlertCount();">
+      </div>
+      <div class="phase-row">
+        <div class="phase-name editable" contenteditable="true">Bureau d'études</div>
+        <div class="progress-wrap"><div class="progress-bar bar-green" id="bar-ph-1" style="width:80%;"></div></div>
+        <input class="progress-input" type="number" min="0" max="100" value="80" data-color="bar-green" data-pct-color="pct-green" oninput="updateProgress('ph-1',this.value);updateAlertCount();">
+        <button class="del-row-btn" onclick="this.closest('.phase-row').remove();">✕</button>
+      </div>
+      <div class="phase-row">
+        <div class="phase-name editable" contenteditable="true">Production / assemblage</div>
+        <div class="progress-wrap"><div class="progress-bar bar-orange" id="bar-ph-2" style="width:35%;"></div></div>
+        <input class="progress-input" type="number" min="0" max="100" value="35" data-color="bar-orange" data-pct-color="pct-orange" oninput="updateProgress('ph-2',this.value);updateAlertCount();">
+        <button class="del-row-btn" onclick="this.closest('.phase-row').remove();">✕</button>
+      </div>
+      <div class="phase-row">
+        <div class="phase-name editable" contenteditable="true">Expéditions</div>
+        <div class="progress-wrap"><div class="progress-bar bar-gray" id="bar-ph-3" style="width:10%;"></div></div>
+        <input class="progress-input" type="number" min="0" max="100" value="10" data-color="bar-gray" data-pct-color="pct-gray" oninput="updateProgress('ph-3',this.value);updateAlertCount();">
+        <button class="del-row-btn" onclick="this.closest('.phase-row').remove();">✕</button>
+      </div>
+    </div>
+    <button class="add-row-btn" onclick="addPhaseRow()">+ Ajouter une phase</button>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="section-title editable" contenteditable="true" id="f-appro-title">Approvisionnements</div>
+      <div class="sub-grid" id="appro-kpis">
+        <div class="sub-kpi"><div class="sub-label editable" contenteditable="true">Commandes en retard</div><div class="sub-val val-danger editable" contenteditable="true">4</div><select class="val-select" onchange="changeValCls(this)"><option value="val-danger" selected>danger</option><option value="val-warning">warning</option><option value="val-ok">ok</option><option value="val-neutral">neutral</option><option value="val-green">green</option></select><button class="del-kpi-btn" onclick="this.closest('.sub-kpi').remove();">✕ Supprimer</button></div>
+        <div class="sub-kpi"><div class="sub-label editable" contenteditable="true">Besoins non couverts</div><div class="sub-val val-danger editable" contenteditable="true">6</div><select class="val-select" onchange="changeValCls(this)"><option value="val-danger" selected>danger</option><option value="val-warning">warning</option><option value="val-ok">ok</option><option value="val-neutral">neutral</option><option value="val-green">green</option></select><button class="del-kpi-btn" onclick="this.closest('.sub-kpi').remove();">✕ Supprimer</button></div>
+        <div class="sub-kpi"><div class="sub-label editable" contenteditable="true">Appels d'offre en cours</div><div class="sub-val val-ok editable" contenteditable="true">3</div><select class="val-select" onchange="changeValCls(this)"><option value="val-danger">danger</option><option value="val-warning">warning</option><option value="val-ok" selected>ok</option><option value="val-neutral">neutral</option><option value="val-green">green</option></select><button class="del-kpi-btn" onclick="this.closest('.sub-kpi').remove();">✕ Supprimer</button></div>
+        <div class="sub-kpi"><div class="sub-label editable" contenteditable="true">Commandes à relancer</div><div class="sub-val val-warning editable" contenteditable="true">2</div><select class="val-select" onchange="changeValCls(this)"><option value="val-danger">danger</option><option value="val-warning" selected>warning</option><option value="val-ok">ok</option><option value="val-neutral">neutral</option><option value="val-green">green</option></select><button class="del-kpi-btn" onclick="this.closest('.sub-kpi').remove();">✕ Supprimer</button></div>
+      </div>
+      <button class="add-row-btn" onclick="addKpi('appro-kpis','val-danger')">+ Ajouter un indicateur</button>
+      <div class="sep">
+        <div class="sep-label">Prochaines livraisons critiques</div>
+        <div id="appro-rows">
+          <div class="row-list"><span class="editable" contenteditable="true">Armoire électrique P3</span><span style="display:flex;align-items:center;gap:6px;"><span class="row-meta editable" contenteditable="true">J+2</span><select class="badge-select" onchange="updateAlertCount();"><option value="badge-danger" selected>En retard</option><option value="badge-warning">À risque</option><option value="badge-ok">Conforme</option><option value="badge-info">Info</option></select><button class="del-row-btn" onclick="this.closest('.row-list').remove();updateAlertCount();">✕</button></span></div>
+          <div class="row-list"><span class="editable" contenteditable="true">Câblage faisceau F1</span><span style="display:flex;align-items:center;gap:6px;"><span class="row-meta editable" contenteditable="true">J+5</span><select class="badge-select" onchange="updateAlertCount();"><option value="badge-danger">En retard</option><option value="badge-warning" selected>À risque</option><option value="badge-ok">Conforme</option><option value="badge-info">Info</option></select><button class="del-row-btn" onclick="this.closest('.row-list').remove();updateAlertCount();">✕</button></span></div>
+          <div class="row-list"><span class="editable" contenteditable="true">Visserie lot B</span><span style="display:flex;align-items:center;gap:6px;"><span class="row-meta editable" contenteditable="true">J+8</span><select class="badge-select" onchange="updateAlertCount();"><option value="badge-danger">En retard</option><option value="badge-warning">À risque</option><option value="badge-ok" selected>Conforme</option><option value="badge-info">Info</option></select><button class="del-row-btn" onclick="this.closest('.row-list').remove();updateAlertCount();">✕</button></span></div>
+        </div>
+        <button class="add-row-btn" onclick="addRow('appro-rows','appro')">+ Ajouter une ligne</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title editable" contenteditable="true" id="f-prod-title">Production & assemblage</div>
+      <div class="sub-grid" id="prod-kpis">
+        <div class="sub-kpi"><div class="sub-label editable" contenteditable="true">OF en cours</div><div class="sub-val val-ok editable" contenteditable="true">5</div><select class="val-select" onchange="changeValCls(this)"><option value="val-danger">danger</option><option value="val-warning">warning</option><option value="val-ok" selected>ok</option><option value="val-neutral">neutral</option><option value="val-green">green</option></select><button class="del-kpi-btn" onclick="this.closest('.sub-kpi').remove();">✕ Supprimer</button></div>
+        <div class="sub-kpi"><div class="sub-label editable" contenteditable="true">OF à risque matière</div><div class="sub-val val-danger editable" contenteditable="true">2</div><select class="val-select" onchange="changeValCls(this)"><option value="val-danger" selected>danger</option><option value="val-warning">warning</option><option value="val-ok">ok</option><option value="val-neutral">neutral</option><option value="val-green">green</option></select><button class="del-kpi-btn" onclick="this.closest('.sub-kpi').remove();">✕ Supprimer</button></div>
+      </div>
+      <button class="add-row-btn" onclick="addKpi('prod-kpis','val-ok')">+ Ajouter un indicateur</button>
+      <div class="sep">
+        <div class="sep-label">Opérations planifiées</div>
+        <div id="prod-rows">
+          <div class="row-list"><span class="editable" contenteditable="true">Assemblage bâti A</span><span style="display:flex;align-items:center;gap:6px;"><span class="row-meta editable" contenteditable="true"></span><select class="badge-select" onchange="updateAlertCount();"><option value="badge-danger" selected>Matière manquante</option><option value="badge-warning">À surveiller</option><option value="badge-ok">Matière OK</option><option value="badge-info">Info</option></select><button class="del-row-btn" onclick="this.closest('.row-list').remove();updateAlertCount();">✕</button></span></div>
+          <div class="row-list"><span class="editable" contenteditable="true">Câblage armoire C2</span><span style="display:flex;align-items:center;gap:6px;"><span class="row-meta editable" contenteditable="true"></span><select class="badge-select" onchange="updateAlertCount();"><option value="badge-danger">Matière manquante</option><option value="badge-warning" selected>À surveiller</option><option value="badge-ok">Matière OK</option><option value="badge-info">Info</option></select><button class="del-row-btn" onclick="this.closest('.row-list').remove();updateAlertCount();">✕</button></span></div>
+          <div class="row-list"><span class="editable" contenteditable="true">Test banc T3</span><span style="display:flex;align-items:center;gap:6px;"><span class="row-meta editable" contenteditable="true"></span><select class="badge-select" onchange="updateAlertCount();"><option value="badge-danger">Matière manquante</option><option value="badge-warning">À surveiller</option><option value="badge-ok" selected>Matière OK</option><option value="badge-info">Info</option></select><button class="del-row-btn" onclick="this.closest('.row-list').remove();updateAlertCount();">✕</button></span></div>
+        </div>
+        <button class="add-row-btn" onclick="addRow('prod-rows','prod')">+ Ajouter une ligne</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="section-title editable" contenteditable="true" id="f-nc-title">Non-conformités</div>
+    <div class="sub-grid-3" id="nc-kpis">
+      <div class="sub-kpi"><div class="sub-label editable" contenteditable="true">Internes</div><div class="sub-val val-warning editable" contenteditable="true">3</div><select class="val-select" onchange="changeValCls(this)"><option value="val-danger">danger</option><option value="val-warning" selected>warning</option><option value="val-ok">ok</option><option value="val-neutral">neutral</option><option value="val-green">green</option></select><button class="del-kpi-btn" onclick="this.closest('.sub-kpi').remove();">✕ Supprimer</button></div>
+      <div class="sub-kpi"><div class="sub-label editable" contenteditable="true">Fournisseurs</div><div class="sub-val val-danger editable" contenteditable="true">2</div><select class="val-select" onchange="changeValCls(this)"><option value="val-danger" selected>danger</option><option value="val-warning">warning</option><option value="val-ok">ok</option><option value="val-neutral">neutral</option><option value="val-green">green</option></select><button class="del-kpi-btn" onclick="this.closest('.sub-kpi').remove();">✕ Supprimer</button></div>
+      <div class="sub-kpi"><div class="sub-label editable" contenteditable="true">Client</div><div class="sub-val val-neutral editable" contenteditable="true">0</div><select class="val-select" onchange="changeValCls(this)"><option value="val-danger">danger</option><option value="val-warning">warning</option><option value="val-ok">ok</option><option value="val-neutral" selected>neutral</option><option value="val-green">green</option></select><button class="del-kpi-btn" onclick="this.closest('.sub-kpi').remove();">✕ Supprimer</button></div>
+    </div>
+    <button class="add-row-btn" onclick="addKpi('nc-kpis','val-warning')">+ Ajouter un indicateur</button>
+    <div class="sep">
+      <div class="sep-label">NC ouvertes</div>
+      <div id="nc-rows">
+        <div class="row-list"><span class="editable" contenteditable="true">NC-F-012 · Pièce usinée hors cote</span><span style="display:flex;align-items:center;gap:6px;"><span class="row-meta editable" contenteditable="true">Ouverte J-6</span><select class="badge-select" onchange="updateAlertCount();"><option value="badge-danger" selected>Fournisseur</option><option value="badge-warning">Interne</option><option value="badge-ok">Clôturée</option><option value="badge-info">Client</option></select><button class="del-row-btn" onclick="this.closest('.row-list').remove();updateAlertCount();">✕</button></span></div>
+        <div class="row-list"><span class="editable" contenteditable="true">NC-F-011 · Composant non conforme</span><span style="display:flex;align-items:center;gap:6px;"><span class="row-meta editable" contenteditable="true">Ouverte J-3</span><select class="badge-select" onchange="updateAlertCount();"><option value="badge-danger" selected>Fournisseur</option><option value="badge-warning">Interne</option><option value="badge-ok">Clôturée</option><option value="badge-info">Client</option></select><button class="del-row-btn" onclick="this.closest('.row-list').remove();updateAlertCount();">✕</button></span></div>
+        <div class="row-list"><span class="editable" contenteditable="true">NC-I-008 · Soudure non conforme</span><span style="display:flex;align-items:center;gap:6px;"><span class="row-meta editable" contenteditable="true">En cours</span><select class="badge-select" onchange="updateAlertCount();"><option value="badge-danger">Fournisseur</option><option value="badge-warning" selected>Interne</option><option value="badge-ok">Clôturée</option><option value="badge-info">Client</option></select><button class="del-row-btn" onclick="this.closest('.row-list').remove();updateAlertCount();">✕</button></span></div>
+        <div class="row-list"><span class="editable" contenteditable="true">NC-I-007 · Visserie mal serrée</span><span style="display:flex;align-items:center;gap:6px;"><span class="row-meta editable" contenteditable="true">Clôturée</span><select class="badge-select" onchange="updateAlertCount();"><option value="badge-danger">Fournisseur</option><option value="badge-warning">Interne</option><option value="badge-ok" selected>Clôturée</option><option value="badge-info">Client</option></select><button class="del-row-btn" onclick="this.closest('.row-list').remove();updateAlertCount();">✕</button></span></div>
+      </div>
+      <button class="add-row-btn" onclick="addRow('nc-rows','nc')">+ Ajouter une NC</button>
+    </div>
+  </div>
+
+</div>
+<script>
+const BADGE_OPTS = {
+  appro: [{cls:'badge-danger',text:'En retard'},{cls:'badge-warning',text:'À risque'},{cls:'badge-ok',text:'Conforme'},{cls:'badge-info',text:'Info'}],
+  prod:  [{cls:'badge-danger',text:'Matière manquante'},{cls:'badge-warning',text:'À surveiller'},{cls:'badge-ok',text:'Matière OK'},{cls:'badge-info',text:'Info'}],
+  nc:    [{cls:'badge-danger',text:'Fournisseur'},{cls:'badge-warning',text:'Interne'},{cls:'badge-ok',text:'Clôturée'},{cls:'badge-info',text:'Client'}]
+};
+const PHASE_COLORS = [{color:'bar-blue',pctColor:'pct-blue'},{color:'bar-green',pctColor:'pct-green'},{color:'bar-orange',pctColor:'pct-orange'},{color:'bar-gray',pctColor:'pct-gray'}];
+const VAL_CLASSES = ['val-danger','val-warning','val-ok','val-neutral','val-green'];
+let phaseIdx = 4;
+
+function updateProgress(id, val) {
+  const v = Math.min(100, Math.max(0, parseInt(val)||0));
+  const bar = document.getElementById('bar-'+id);
+  if (bar) bar.style.width = v+'%';
+}
+
+function updateAlertCount() {
+  let n = 0;
+  document.querySelectorAll('.badge-select').forEach(s => { if(s.value==='badge-danger') n++; });
+  document.getElementById('alert-count').textContent = n;
+}
+
+function changeValCls(sel) {
+  const valEl = sel.previousElementSibling;
+  VAL_CLASSES.forEach(c => valEl.classList.remove(c));
+  valEl.classList.add(sel.value);
+}
+
+function addRow(containerId, type) {
+  const opts = BADGE_OPTS[type];
+  const optStr = opts.map((o,i) => `<option value="${o.cls}"${i===1?' selected':''}>${o.text}</option>`).join('');
+  document.getElementById(containerId).insertAdjacentHTML('beforeend',
+    `<div class="row-list"><span class="editable" contenteditable="true">Nouvelle ligne</span><span style="display:flex;align-items:center;gap:6px;"><span class="row-meta editable" contenteditable="true"></span><select class="badge-select" onchange="updateAlertCount();">${optStr}</select><button class="del-row-btn" onclick="this.closest('.row-list').remove();updateAlertCount();">✕</button></span></div>`);
+}
+
+function addKpi(containerId, defaultCls) {
+  const opts = VAL_CLASSES.map(c => `<option value="${c}"${c===defaultCls?' selected':''}>${c.replace('val-','')}</option>`).join('');
+  document.getElementById(containerId).insertAdjacentHTML('beforeend',
+    `<div class="sub-kpi"><div class="sub-label editable" contenteditable="true">Nouvel indicateur</div><div class="sub-val ${defaultCls} editable" contenteditable="true">0</div><select class="val-select" onchange="changeValCls(this)">${opts}</select><button class="del-kpi-btn" onclick="this.closest('.sub-kpi').remove();">✕ Supprimer</button></div>`);
+}
+
+function addPhaseRow() {
+  const c = PHASE_COLORS[phaseIdx % PHASE_COLORS.length];
+  const id = 'ph-' + phaseIdx;
+  document.getElementById('phase-rows').insertAdjacentHTML('beforeend',
+    `<div class="phase-row"><div class="phase-name editable" contenteditable="true">Nouvelle phase</div><div class="progress-wrap"><div class="progress-bar ${c.color}" id="bar-${id}" style="width:0%;"></div></div><input class="progress-input" type="number" min="0" max="100" value="0" data-color="${c.color}" data-pct-color="${c.pctColor}" oninput="updateProgress('${id}',this.value);"><button class="del-row-btn" onclick="this.closest('.phase-row').remove();">✕</button></div>`);
+  phaseIdx++;
+}
+
+function collectData() {
+  const phases = [];
+  document.querySelectorAll('#phase-rows .phase-row').forEach((row, i) => {
+    const inp = row.querySelector('.progress-input');
+    phases.push({name: row.querySelector('.phase-name').textContent.trim(), pct: parseInt(inp.value)||0, color: inp.dataset.color, pctColor: inp.dataset.pctColor, bold: i===0});
+  });
+  function rows(id, type) {
+    return [...document.querySelectorAll('#'+id+' .row-list')].map(row => {
+      const sel = row.querySelector('.badge-select');
+      return {label: row.querySelector('span.editable').textContent.trim(), meta: row.querySelector('.row-meta')?.textContent.trim()||'', badgeCls: sel.value, badgeText: sel.options[sel.selectedIndex].text};
+    });
+  }
+  function kpis(id) {
+    return [...document.querySelectorAll('#'+id+' .sub-kpi')].map(k => {
+      const sel = k.querySelector('.val-select');
+      return {label: k.querySelector('.sub-label').textContent.trim(), val: k.querySelector('.sub-val').textContent.trim(), cls: sel?sel.value:'val-neutral'};
+    });
+  }
+  const now = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  return {
+    meta: {affaire: document.getElementById('f-affaire').textContent.trim(), livraison: document.getElementById('f-livraison').textContent.trim(), charge: document.getElementById('f-charge').textContent.trim()},
+    alertDetails: [document.getElementById('f-alert1').textContent.trim(), document.getElementById('f-alert2').textContent.trim()],
+    phases, approTitle: document.getElementById('f-appro-title').textContent.trim(),
+    approKpis: kpis('appro-kpis'), approRows: rows('appro-rows','appro'),
+    prodTitle: document.getElementById('f-prod-title').textContent.trim(),
+    prodKpis: kpis('prod-kpis'), prodRows: rows('prod-rows','prod'),
+    ncTitle: document.getElementById('f-nc-title').textContent.trim(),
+    ncKpis: kpis('nc-kpis'), ncRows: rows('nc-rows','nc'),
+    lastUpdate: now
+  };
+}
+
+function exportIndexHTML() {
+  const d = collectData();
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pilotage opérationnel</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="db">
+  <div class="header-bar">PILOTAGE OPÉRATIONNEL</div>
+  <div class="affaire-meta" id="meta-display"></div>
+  <div class="alert-banner">
+    <div><div class="alert-sub">Alertes actives</div><div class="alert-count" id="alert-count">—</div></div>
+    <div class="alert-details" id="alert-details"></div>
+  </div>
+  <div class="card" style="margin-bottom:12px;">
+    <div class="section-title">Avancement global de l'affaire</div>
+    <div id="progress-rows"></div>
+  </div>
+  <div class="two-col">
+    <div class="card">
+      <div class="section-title" id="appro-title"></div>
+      <div class="sub-grid" id="appro-kpis"></div>
+      <div class="sep"><div class="sep-label">Prochaines livraisons critiques</div><div id="appro-rows"></div></div>
+    </div>
+    <div class="card">
+      <div class="section-title" id="prod-title"></div>
+      <div class="sub-grid" id="prod-kpis"></div>
+      <div class="sep"><div class="sep-label">Opérations planifiées</div><div id="prod-rows"></div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="section-title" id="nc-title"></div>
+    <div class="sub-grid-3" id="nc-kpis"></div>
+    <div class="sep"><div class="sep-label">NC ouvertes</div><div id="nc-rows"></div></div>
+  </div>
+  <div style="text-align:right;font-size:11px;color:#8A9BB0;margin-top:4px;">Dernière mise à jour : <span id="last-update">—</span></div>
+</div>
+<script>
+const DATA = ${JSON.stringify(d, null, 2)};
+function countAlerts(d){let n=0;[...(d.approRows||[]),...(d.prodRows||[]),...(d.ncRows||[])].forEach(r=>{if(r.badgeCls==='badge-danger')n++;});return n;}
+function renderRows(rows){return(rows||[]).map(r=>\`<div class="row-list"><span>\${r.label}</span><span style="display:flex;align-items:center;gap:6px;">\${r.meta?\`<span class="row-meta">\${r.meta}</span>\`:''}<span class="badge \${r.badgeCls}">\${r.badgeText}</span></span></div>\`).join('');}
+function renderKpis(kpis,id){document.getElementById(id).innerHTML=(kpis||[]).map(k=>\`<div class="sub-kpi"><div class="sub-label">\${k.label}</div><div class="sub-val \${k.cls}">\${k.val}</div></div>\`).join('');}
+function render(d){
+  document.getElementById('meta-display').innerHTML=\`Affaire : <strong>\${d.meta.affaire}</strong> &nbsp;·&nbsp; Livraison prévue : \${d.meta.livraison} &nbsp;·&nbsp; Chargé d'affaire : \${d.meta.charge}\`;
+  document.getElementById('alert-count').textContent=countAlerts(d);
+  document.getElementById('alert-details').innerHTML=(d.alertDetails||[]).join('<br>');
+  document.getElementById('progress-rows').innerHTML=(d.phases||[]).map(p=>\`<div class="phase-row"><div class="phase-name \${p.bold?'bold':''}">\${p.name}</div><div class="progress-wrap"><div class="progress-bar \${p.color}" style="width:\${p.pct}%;"></div></div><span class="progress-pct-label \${p.pctColor}">\${p.pct}%</span></div>\`).join('');
+  document.getElementById('appro-title').textContent=d.approTitle||'';
+  renderKpis(d.approKpis,'appro-kpis');
+  document.getElementById('appro-rows').innerHTML=renderRows(d.approRows);
+  document.getElementById('prod-title').textContent=d.prodTitle||'';
+  renderKpis(d.prodKpis,'prod-kpis');
+  document.getElementById('prod-rows').innerHTML=renderRows(d.prodRows);
+  document.getElementById('nc-title').textContent=d.ncTitle||'';
+  renderKpis(d.ncKpis,'nc-kpis');
+  document.getElementById('nc-rows').innerHTML=renderRows(d.ncRows);
+  document.getElementById('last-update').textContent=d.lastUpdate||'—';
+}
+render(DATA);
+<\/script>
+</body>
+</html>`;
+  const blob = new Blob([html], {type:'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'index.html';
+  a.click();
+  const c = document.getElementById('save-confirm');
+  c.classList.add('show');
+  setTimeout(() => c.classList.remove('show'), 5000);
+}
+
+function resetData() {
+  if (confirm('Réinitialiser aux valeurs par défaut ?')) location.reload();
+}
+
+updateAlertCount();
+</script>
+</body>
+</html>
